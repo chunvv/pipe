@@ -53,7 +53,7 @@ func Register(r registerer) {
 func (p *Planner) Plan(ctx context.Context, in planner.Input) (out planner.Output, err error) {
 	ds, err := in.TargetDSP.Get(ctx, ioutil.Discard)
 	if err != nil {
-		err = fmt.Errorf("error while preparing deploy source data (%v)", err)
+		err = fmt.Errorf("error while preparing deploy source data (%w)", err)
 		return
 	}
 	cfg := ds.DeploymentConfig.KubernetesDeploymentSpec
@@ -146,14 +146,14 @@ func (p *Planner) Plan(ctx context.Context, in planner.Input) (out planner.Outpu
 	// This is the first time to deploy this application
 	// or it was unable to retrieve that value.
 	// We just apply all manifests.
-	if in.MostRecentSuccessfulCommitHash == "" {
+	if in.RecentlySuccessfulDeployment.Trigger.Commit.Hash == "" {
 		out.Stages = buildQuickSyncPipeline(cfg.Input.AutoRollback, time.Now())
 		out.Summary = "Quick sync by applying all manifests because it seems this is the first deployment"
 		return
 	}
 
 	// Load manifests of the previously applied commit.
-	oldManifests, ok := manifestCache.Get(in.MostRecentSuccessfulCommitHash)
+	oldManifests, ok := manifestCache.Get(in.RecentlySuccessfulDeployment.Trigger.Commit.Hash)
 	if !ok {
 		// When the manifests were not in the cache we have to load them.
 		var runningDs *deploysource.DeploySource
@@ -169,7 +169,7 @@ func (p *Planner) Plan(ctx context.Context, in planner.Input) (out planner.Outpu
 			err = fmt.Errorf("failed to load previously deployed manifests: %w", err)
 			return
 		}
-		manifestCache.Put(in.MostRecentSuccessfulCommitHash, oldManifests)
+		manifestCache.Put(in.RecentlySuccessfulDeployment.Trigger.Commit.Hash, oldManifests)
 	}
 
 	progressive, desc := decideStrategy(oldManifests, newManifests)

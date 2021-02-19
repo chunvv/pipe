@@ -637,6 +637,7 @@ func (s *scheduler) reportMostRecentlySuccessfulDeployment(ctx context.Context) 
 				Trigger:      s.deployment.Trigger,
 				Summary:      s.deployment.Summary,
 				Version:      s.deployment.Version,
+				GitPath:      s.deployment.GitPath,
 				StartedAt:    s.deployment.CreatedAt,
 				CompletedAt:  s.deployment.CompletedAt,
 			},

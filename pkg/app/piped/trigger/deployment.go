@@ -88,6 +88,7 @@ func (t *Trigger) reportMostRecentlyTriggeredDeployment(ctx context.Context, d *
 				Trigger:      d.Trigger,
 				Summary:      d.Summary,
 				Version:      d.Version,
+				GitPath:      d.GitPath,
 				StartedAt:    d.CreatedAt,
 				CompletedAt:  d.CompletedAt,
 			},

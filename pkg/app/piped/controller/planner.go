@@ -41,18 +41,18 @@ import (
 // - Update the pipeline stages and change the deployment status to PLANNED
 type planner struct {
 	// Readonly deployment model.
-	deployment               *model.Deployment
-	envName                  string
-	lastSuccessfulCommitHash string
-	workingDir               string
-	apiClient                apiClient
-	gitClient                gitClient
-	notifier                 notifier
-	sealedSecretDecrypter    sealedSecretDecrypter
-	plannerRegistry          registry.Registry
-	pipedConfig              *config.PipedSpec
-	appManifestsCache        cache.Cache
-	logger                   *zap.Logger
+	deployment                   *model.Deployment
+	envName                      string
+	recentlySuccessfulDeployment *model.ApplicationDeploymentReference
+	workingDir                   string
+	apiClient                    apiClient
+	gitClient                    gitClient
+	notifier                     notifier
+	sealedSecretDecrypter        sealedSecretDecrypter
+	plannerRegistry              registry.Registry
+	pipedConfig                  *config.PipedSpec
+	appManifestsCache            cache.Cache
+	logger                       *zap.Logger
 
 	done                 atomic.Bool
 	doneTimestamp        time.Time
@@ -66,7 +66,7 @@ type planner struct {
 func newPlanner(
 	d *model.Deployment,
 	envName string,
-	lastSuccessfulCommitHash string,
+	recentlySuccessfulDeployment *model.ApplicationDeploymentReference,
 	workingDir string,
 	apiClient apiClient,
 	gitClient gitClient,
@@ -87,21 +87,21 @@ func newPlanner(
 	)
 
 	p := &planner{
-		deployment:               d,
-		envName:                  envName,
-		lastSuccessfulCommitHash: lastSuccessfulCommitHash,
-		workingDir:               workingDir,
-		apiClient:                apiClient,
-		gitClient:                gitClient,
-		notifier:                 notifier,
-		sealedSecretDecrypter:    ssd,
-		pipedConfig:              pipedConfig,
-		plannerRegistry:          registry.DefaultRegistry(),
-		appManifestsCache:        appManifestsCache,
-		doneDeploymentStatus:     d.Status,
-		cancelledCh:              make(chan *model.ReportableCommand, 1),
-		nowFunc:                  time.Now,
-		logger:                   logger,
+		deployment:                   d,
+		envName:                      envName,
+		recentlySuccessfulDeployment: recentlySuccessfulDeployment,
+		workingDir:                   workingDir,
+		apiClient:                    apiClient,
+		gitClient:                    gitClient,
+		notifier:                     notifier,
+		sealedSecretDecrypter:        ssd,
+		pipedConfig:                  pipedConfig,
+		plannerRegistry:              registry.DefaultRegistry(),
+		appManifestsCache:            appManifestsCache,
+		doneDeploymentStatus:         d.Status,
+		cancelledCh:                  make(chan *model.ReportableCommand, 1),
+		nowFunc:                      time.Now,
+		logger:                       logger,
 	}
 	return p
 }
@@ -162,11 +162,11 @@ func (p *planner) Run(ctx context.Context) error {
 	}
 
 	in := pln.Input{
-		Deployment:                     p.deployment,
-		MostRecentSuccessfulCommitHash: p.lastSuccessfulCommitHash,
-		AppManifestsCache:              p.appManifestsCache,
-		RegexPool:                      regexpool.DefaultPool(),
-		Logger:                         p.logger,
+		Deployment:                   p.deployment,
+		RecentlySuccessfulDeployment: p.recentlySuccessfulDeployment,
+		AppManifestsCache:            p.appManifestsCache,
+		RegexPool:                    regexpool.DefaultPool(),
+		Logger:                       p.logger,
 	}
 
 	in.TargetDSP = deploysource.NewProvider(
@@ -179,14 +179,14 @@ func (p *planner) Run(ctx context.Context) error {
 		p.sealedSecretDecrypter,
 	)
 
-	if p.lastSuccessfulCommitHash != "" {
+	if p.recentlySuccessfulDeployment != nil {
 		in.RunningDSP = deploysource.NewProvider(
 			filepath.Join(p.workingDir, "running-deploysource"),
 			repoCfg,
 			"running",
-			p.lastSuccessfulCommitHash,
+			p.recentlySuccessfulDeployment.Trigger.Commit.Hash,
 			p.gitClient,
-			p.deployment.GitPath,
+			p.recentlySuccessfulDeployment.GitPath,
 			p.sealedSecretDecrypter,
 		)
 	}
@@ -211,7 +211,7 @@ func (p *planner) Run(ctx context.Context) error {
 	}
 
 	p.doneDeploymentStatus = model.DeploymentStatus_DEPLOYMENT_PLANNED
-	return p.reportDeploymentPlanned(ctx, p.lastSuccessfulCommitHash, out)
+	return p.reportDeploymentPlanned(ctx, p.recentlySuccessfulDeployment.Trigger.Commit.Hash, out)
 }
 
 func (p *planner) reportDeploymentPlanned(ctx context.Context, runningCommitHash string, out pln.Output) error {

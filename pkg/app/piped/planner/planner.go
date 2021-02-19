@@ -38,13 +38,13 @@ type Planner interface {
 
 type Input struct {
 	// Readonly deployment model.
-	Deployment                     *model.Deployment
-	MostRecentSuccessfulCommitHash string
-	TargetDSP                      deploysource.Provider
-	RunningDSP                     deploysource.Provider
-	AppManifestsCache              cache.Cache
-	RegexPool                      *regexpool.Pool
-	Logger                         *zap.Logger
+	Deployment                   *model.Deployment
+	RecentlySuccessfulDeployment *model.ApplicationDeploymentReference
+	TargetDSP                    deploysource.Provider
+	RunningDSP                   deploysource.Provider
+	AppManifestsCache            cache.Cache
+	RegexPool                    *regexpool.Pool
+	Logger                       *zap.Logger
 }
 
 type Output struct {

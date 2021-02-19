@@ -81,7 +81,7 @@ func (p *Planner) Plan(ctx context.Context, in planner.Input) (out planner.Outpu
 
 	// If this is the first time to deploy this application or it was unable to retrieve last successful commit,
 	// we perform the quick sync strategy.
-	if in.MostRecentSuccessfulCommitHash == "" {
+	if in.RecentlySuccessfulDeployment.Trigger.Commit.Hash == "" {
 		out.Stages = buildQuickSyncPipeline(cfg.Input.AutoRollback, time.Now())
 		out.Summary = fmt.Sprintf("Quick sync to deploy image %s and configure all traffic to it (it seems this is the first deployment)", out.Version)
 		return
